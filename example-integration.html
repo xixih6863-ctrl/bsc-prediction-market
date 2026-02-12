@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>同花顺预测市场 - API 集成版</title>
+    
+    <!-- 引入 Web3.js -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    
+    <!-- 引入集成脚本 -->
+    <script src="market-integration.js"></script>
+    
+    <style>
+        /* 基础样式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0a0f; 
+            color: #fff; 
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* 通知样式 */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        /* 市场卡片样式 */
+        .prediction-card {
+            background: #111118;
+            border: 1px solid #222228;
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .prediction-card:hover {
+            border-color: rgba(240,185,11,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .prediction-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .prediction-time {
+            font-size: 12px;
+            color: #8B8B93;
+        }
+        
+        .prediction-bar {
+            height: 6px;
+            background: #222228;
+            border-radius: 3px;
+            margin: 14px 0;
+            overflow: hidden;
+        }
+        
+        .prediction-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #21A366, #178653);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        
+        .odds-section {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .odds-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            border: 2px solid;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .odds-btn.up {
+            border-color: #21A366;
+            background: rgba(33,163,102,0.1);
+            color: #21A366;
+        }
+        .odds-btn.up:hover {
+            background: rgba(33,163,102,0.2);
+        }
+        
+        .odds-btn.down {
+            border-color: #EE4B2B;
+            background: rgba(255,75,75,0.1);
+            color: #EE4B2B;
+        }
+        .odds-btn.down:hover {
+            background: rgba(255,75,75,0.2);
+        }
+        
+        .pool-info {
+            font-size: 12px;
+            color: #8B8B93;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        /* 弹窗样式 */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 2000;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: #111118;
+            border: 1px solid #222228;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 450px;
+            overflow: hidden;
+        }
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid #222228;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .modal-input {
+            background: #0a0a0f;
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+        }
+        .modal-input input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            outline: none;
+        }
+        .quick-btns {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .quick-btns button {
+            flex: 1;
+            padding: 10px;
+            background: rgba(240,185,11,0.1);
+            border: 1px solid rgba(240,185,11,0.2);
+            border-radius: 10px;
+            color: #F0B90B;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .payout-info {
+            background: linear-gradient(90deg, rgba(33,163,102,0.1), transparent);
+            border: 1px solid rgba(33,163,102,0.2);
+            padding: 16px;
+            border-radius: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .payout-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #21A366;
+        }
+        .modal-footer {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .modal-btn {
+            padding: 18px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+        .modal-btn.up {
+            background: linear-gradient(135deg, #21A366, #178653);
+            color: #fff;
+        }
+        .modal-btn.down {
+            background: linear-gradient(135deg, #EE4B2B, #C73E1D);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header style="background: rgba(17,17,24,0.98); padding: 15px 20px; border-bottom: 1px solid rgba(240,185,11,0.2); position: fixed; top: 0; left: 0; right: 0; z-index: 1000;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #F0B90B, #FFD700); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    🔗
+                </div>
+                <div>
+                    <h1 style="font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #F0B90B, #FFD700); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        同花顺预测市场
+                    </h1>
+                    <p style="font-size: 11px; color: #21A366; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 8px; height: 8px; background: #21A366; border-radius: 50%; animation: pulse 2s infinite;"></span>
+                        BSC链上 · 实时预测
+                    </p>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="padding: 6px 12px; background: rgba(33,163,102,0.15); border: 1px solid rgba(33,163,102,0.3); border-radius: 20px; font-size: 12px; color: #21A366;">
+                    BSC
+                </div>
+                
+                <!-- 钱包按钮 -->
+                <button id="connectWallet" class="wallet-btn" style="background: linear-gradient(135deg, #F0B90B, #D4A000); padding: 10px 20px; border-radius: 25px; font-weight: 600; font-size: 14px; border: none; color: #000; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <span>👛</span>
+                    <span>连接钱包</span>
+                </button>
+                
+                <!-- 钱包信息 (连接后显示) -->
+                <div id="walletInfo" class="wallet-info" style="display: none; align-items: center; gap: 12px; background: rgba(17,17,24,0.9); padding: 8px 16px; border-radius: 25px; border: 1px solid rgba(240,185,11,0.2);">
+                    <span id="walletAddress" style="font-family: monospace; font-size: 13px; color: #F0B90B;">0x0000...0000</span>
+                    <span id="walletBalance" style="font-size: 14px; font-weight: 600;"><span style="color: #F0B90B;">0.00</span> BNB</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容 -->
+    <main style="padding: 130px 20px 100px; max-width: 1400px; margin: 0 auto;">
+        <!-- 统计 -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+            <div class="stat-card" style="background: linear-gradient(135deg, #111118, #1a1a24); border: 1px solid #222228; border-radius: 14px; padding: 18px; text-align: center;">
+                <p style="font-size: 12px; color: #8B8B93; margin-bottom: 6px;">总参与人数</p>
+                <div style="font-size: 20px; font-weight: 700; color: #F0B90B;">12,580</div>
+                <div style="font-size: 13px; margin-top: 4px; color: #21A366;">+856 今日</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #111118, #1a1a24); border: 1px solid #222228; border-radius: 14px; padding: 18px; text-align: center;">
+                <p style="font-size: 12px; color: #8B8B93; margin-bottom: 6px;">总奖池金额</p>
+                <div style="font-size: 20px; font-weight: 700; color: #F0B90B;">458.2</div>
+                <div style="font-size: 13px; margin-top: 4px;">BNB</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #111118, #1a1a24); border: 1px solid #222228; border-radius: 14px; padding: 18px; text-align: center;">
+                <p style="font-size: 12px; color: #8B8B93; margin-bottom: 6px;">今日预测数</p>
+                <div style="font-size: 20px; font-weight: 700;">3,256</div>
+                <div style="font-size: 13px; margin-top: 4px; color: #21A366;">+12% 较昨日</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #111118, #1a1a24); border: 1px solid #222228; border-radius: 14px; padding: 18px; text-align: center;">
+                <p style="font-size: 12px; color: #8B8B93; margin-bottom: 6px;">预测准确率</p>
+                <div style="font-size: 20px; font-weight: 700; color: #21A366;">72.5%</div>
+                <div style="font-size: 13px; margin-top: 4px;">TOP 10%</div>
+            </div>
+        </div>
+
+        <!-- 市场列表 -->
+        <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+            <span>⚡</span> 热门预测
+        </h2>
+        
+        <div id="markets-list">
+            <!-- 市场卡片将自动加载 -->
+            <div style="text-align: center; padding: 40px; color: #8B8B93;">
+                📊 加载市场中...
+            </div>
+        </div>
+    </main>
+
+    <!-- 投注弹窗 -->
+    <div id="betModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle" style="font-size: 20px; font-weight: 700;">
+                    上证指数 > 3450 点
+                </div>
+                <div class="modal-close" onclick="frontend.closeBetModal()" style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; color: #8B8B93;">
+                    ✕
+                </div>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; color: #8B8B93; margin-bottom: 10px;">预测概率</label>
+                    <div style="display: flex; gap: 12px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #21A366;">
+                                <span>涨 ✅</span>
+                                <span id="upProb">65%</span>
+                            </div>
+                            <div style="height: 6px; background: #222228; border-radius: 3px;">
+                                <div id="upBar" style="height: 100%; width: 65%; background: linear-gradient(90deg, #21A366, #178653); border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #EE4B2B;">
+                                <span>跌 ❌</span>
+                                <span id="downProb">35%</span>
+                            </div>
+                            <div style="height: 6px; background: #222228; border-radius: 3px;">
+                                <div id="downBar" style="height: 100%; width: 35%; background: linear-gradient(90deg, #EE4B2B, #C73E1D); border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; color: #8B8B93; margin-bottom: 10px;">投注金额</label>
+                    <div class="modal-input">
+                        <input type="number" id="betAmount" value="10" min="0.001" step="0.1" oninput="frontend.updatePayout()" style="width: 100%; background: transparent; border: none; font-size: 28px; font-weight: 700; color: #fff; outline: none;">
+                        <span style="color: #F0B90B; font-weight: 600;">BNB</span>
+                    </div>
+                    <div class="quick-btns">
+                        <button onclick="frontend.setAmount(1)">1 BNB</button>
+                        <button onclick="frontend.setAmount(10)">10 BNB</button>
+                        <button onclick="frontend.setAmount(50)">50 BNB</button>
+                        <button onclick="frontend.setAmount(100)">100 BNB</button>
+                    </div>
+                </div>
+                
+                <div class="payout-info">
+                    <span style="font-size: 14px; color: #8B8B93;">预计收益</span>
+                    <span class="payout-value" id="payoutAmount">+18.5 BNB</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn up" id="btnUp" onclick="frontend.submitBet('yes')">💰 预测涨</button>
+                <button class="modal-btn down" id="btnDown" onclick="frontend.submitBet('no')">💰 预测跌</button>
+            </div>
+            <div style="background: #0a0a0f; padding: 14px; text-align: center; font-size: 12px; color: #8B8B93;">
+                预测将在结算时自动判定 | 赔率根据实时奖池动态调整
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</body>
+</html>
