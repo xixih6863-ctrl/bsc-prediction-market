@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 同花顺预测市场 - A股期货期权</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; min-height: 100vh; }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%);
+            padding: 20px 30px;
+            border-bottom: 3px solid #ffd700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .logo { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            font-size: 26px; 
+            font-weight: bold; 
+            color: #ffd700;
+        }
+        .logo-icon { font-size: 32px; }
+        .sub-logo { font-size: 14px; color: rgba(255,255,255,0.8); font-weight: normal; }
+        
+        /* Wallet */
+        .wallet-bar { display: flex; align-items: center; gap: 15px; }
+        .wallet-info {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,215,0,0.15);
+            padding: 10px 18px;
+            border-radius: 10px;
+        }
+        .wallet-info.show { display: flex; }
+        .wallet-addr { font-size: 13px; color: #ffd700; font-family: monospace; }
+        .wallet-bal { font-size: 14px; color: #ffd700; font-weight: bold; }
+        .connect-btn {
+            background: linear-gradient(135deg, #ffd700, #ffb700);
+            color: #8b0000;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        /* Container */
+        .container { max-width: 1400px; margin: 0 auto; padding: 25px; }
+        
+        /* Status Bar */
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .status-card {
+            background: linear-gradient(135deg, #1a1a24, #0d0d14);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-dot.green { background: #22bb33; }
+        .status-dot.red { background: #ff4444; }
+        .status-dot.yellow { background: #ffd700; }
+        
+        /* Index Bar */
+        .index-bar {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        .index-card {
+            background: linear-gradient(135deg, #1a1a24, #0d0d14);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .index-name { font-size: 12px; color: #888; margin-bottom: 8px; }
+        .index-val { font-size: 22px; font-weight: bold; }
+        .index-up { color: #ff4444; font-size: 14px; margin-top: 5px; }
+        .index-down { color: #22bb33; font-size: 14px; margin-top: 5px; }
+        
+        /* Section */
+        .section { margin-bottom: 35px; }
+        .section-title {
+            font-size: 22px;
+            color: #ffd700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .market-count {
+            background: rgba(255,215,0,0.15);
+            color: #ffd700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        /* Category Filter */
+        .category-filter { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        .cat-btn {
+            background: #1a1a24;
+            border: 1px solid #333;
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: #888;
+            cursor: pointer;
+        }
+        .cat-btn.active {
+            background: linear-gradient(135deg, #c41e3a, #8b0000);
+            border-color: #ffd700;
+            color: #ffd700;
+        }
+        
+        /* Market Grid */
+        .markets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 18px;
+        }
+        .market-card {
+            background: #111118;
+            border: 1px solid #222;
+            border-radius: 16px;
+            padding: 22px;
+        }
+        .card-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .card-title { font-size: 16px; font-weight: 500; flex: 1; padding-right: 12px; }
+        .hot-tag {
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+        .card-meta { display: flex; gap: 15px; font-size: 13px; color: #888; margin-bottom: 15px; }
+        
+        /* Progress Bar */
+        .progress-bar { height: 8px; background: #222; border-radius: 4px; overflow: hidden; display: flex; margin: 18px 0; }
+        .progress-yes { height: 100%; background: linear-gradient(90deg, #22bb33, #44dd55); }
+        .progress-no { height: 100%; background: linear-gradient(90deg, #ff6666, #ff4444); }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 15px; }
+        
+        /* Odds Buttons */
+        .odds-section { display: flex; gap: 12px; margin-top: 18px; }
+        .odds-btn {
+            flex: 1;
+            padding: 16px 12px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .odds-up {
+            background: rgba(34,187,51,0.15);
+            border-color: rgba(34,187,51,0.4);
+            color: #22bb33;
+        }
+        .odds-down {
+            background: rgba(255,68,68,0.15);
+            border-color: rgba(255,68,68,0.4);
+            color: #ff4444;
+        }
+        .odds-label { font-size: 14px; margin-bottom: 6px; font-weight: 500; }
+        .odds-value { font-size: 24px; font-weight: bold; }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            font-size: 13px;
+            margin-top: 40px;
+            border-top: 1px solid #222;
+        }
+        .footer a { color: #ffd700; text-decoration: none; }
+        
+        @media (max-width: 768px) {
+            .markets-grid { grid-template-columns: 1fr; }
+            .index-bar { grid-template-columns: repeat(2, 1fr); }
+            .status-bar { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <span class="logo-icon">📊</span>
+            <div>
+                <div>同花顺预测市场</div>
+                <div class="sub-logo">A股 · 期货 · 期权 · 港股</div>
+            </div>
+        </div>
+        <div class="wallet-bar">
+            <div class="wallet-info" id="walletInfo">
+                <span class="wallet-addr" id="walletAddr">---</span>
+                <span class="wallet-bal" id="walletBal">0 BNB</span>
+            </div>
+            <button class="connect-btn" id="connectBtn" onclick="connectWallet()">🔗 连接钱包</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Status -->
+        <div class="status-bar">
+            <div class="status-card">
+                <div><span class="status-dot green"></span>系统状态</div>
+                <div style="margin-top:8px;color:#22bb33;font-weight:bold;">正常运行</div>
+            </div>
+            <div class="status-card">
+                <div><span class="status-dot green"></span>活跃市场</div>
+                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">40</div>
+            </div>
+            <div class="status-card">
+                <div><span class="status-dot green"></span>总成交量</div>
+                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">2,450 BNB</div>
+            </div>
+            <div class="status-card">
+                <div><span class="status-dot yellow"></span>在线用户</div>
+                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">128</div>
+            </div>
+        </div>
+        
+        <!-- A-Share Indices -->
+        <div class="section">
+            <div class="section-title">
+                📈 A股指数
+            </div>
+            <div class="index-bar">
+                <div class="index-card">
+                    <div class="index-name">上证指数</div>
+                    <div class="index-val">3,452.31</div>
+                    <div class="index-up">+1.23%</div>
+                </div>
+                <div class="index-card">
+                    <div class="index-name">深证成指</div>
+                    <div class="index-val">11,892.45</div>
+                    <div class="index-down">-0.45%</div>
+                </div>
+                <div class="index-card">
+                    <div class="index-name">创业板指</div>
+                    <div class="index-val">2,456.78</div>
+                    <div class="index-up">+0.89%</div>
+                </div>
+                <div class="index-card">
+                    <div class="index-name">沪深300</div>
+                    <div class="index-val">4,123.56</div>
+                    <div class="index-up">+1.56%</div>
+                </div>
+                <div class="index-card">
+                    <div class="index-name">恒生指数</div>
+                    <div class="index-val">19,876.54</div>
+                    <div class="index-down">-0.32%</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hot Predictions -->
+        <div class="section">
+            <div class="section-title">
+                🔥 热门预测
+                <span class="market-count" id="marketCount">40 个市场</span>
+            </div>
+            
+            <div class="category-filter">
+                <button class="cat-btn active" onclick="filterCategory('all')">📊 全部</button>
+                <button class="cat-btn" onclick="filterCategory('大盘')">📈 大盘</button>
+                <button class="cat-btn" onclick="filterCategory('个股')">💼 个股</button>
+                <button class="cat-btn" onclick="filterCategory('板块')">🔥 板块</button>
+                <button class="cat-btn" onclick="filterCategory('政策')">📜 政策</button>
+                <button class="cat-btn" onclick="filterCategory('港股')">🇭🇰 港股</button>
+            </div>
+            
+            <div class="markets-grid" id="marketsGrid"></div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>📊 同花顺预测市场 | 🎯 赔率仅供参考</p>
+        <p>合约: <a href="https://bscscan.com/address/0x0a622fBE2A3daD19AEEFAb20880E5E7a87d37146" target="_blank">0x0a62...146</a> | BSC Mainnet</p>
+        <p>⚠️ 风险提示: 预测市场有风险，投资需谨慎</p>
+    </div>
+    
+    <script>
+    const CONTRACT_ADDRESS = "0x0a622fBE2A3daD19AEEFAb20880E5E7a87d37146";
+    const BSC_CHAIN_ID = "0x38";
+    const CONTRACT_ABI = [{"inputs":[{"name":"_marketId","type":"uint256"},{"name":"_isYes","type":"bool"}],"name":"placeBet","outputs":[],"stateMutability":"payable","type":"function"}];
+    
+    const marketsData = [
+        {id:1,q:"上证指数今日收盘 > 3450 点",cat:"大盘",hot:true,yesOdds:1.85,noOdds:2.05,yesPct:55,end:"今日"},
+        {id:2,q:"创业板指突破 2500 点",cat:"大盘",hot:true,yesOdds:2.20,noOdds:1.75,yesPct:48,end:"本周"},
+        {id:3,q:"沪深300站上 4200 点",cat:"大盘",yesOdds:2.50,noOdds:1.60,yesPct:42,end:"本月"},
+        {id:4,q:"上证 3500 点保卫战",cat:"大盘",yesOdds:1.55,noOdds:2.45,yesPct:65,end:"本周"},
+        {id:5,q:"北向资金净流入百亿",cat:"大盘",yesOdds:1.85,noOdds:2.00,yesPct:52,end:"今日"},
+        {id:6,q:"成交量破万亿",cat:"大盘",yesOdds:1.60,noOdds:2.40,yesPct:62,end:"今日"},
+        {id:7,q:"贵州茅台突破 1800 元",cat:"个股",hot:true,yesOdds:1.90,noOdds:2.00,yesPct:52,end:"本月"},
+        {id:8,q:"宁德时代重回 400 元",cat:"个股",yesOdds:2.30,noOdds:1.70,yesPct:45,end:"本月"},
+        {id:9,q:"比亚迪突破 300 元",cat:"个股",yesOdds:1.75,noOdds:2.15,yesPct:58,end:"本月"},
+        {id:10,q:"招商银行创新高",cat:"个股",yesOdds:2.10,noOdds:1.85,yesPct:50,end:"本月"},
+        {id:11,q:"中信证券涨停",cat:"个股",yesOdds:3.50,noOdds:1.35,yesPct:28,end:"本周"},
+        {id:12,q:"五粮液突破 150 元",cat:"个股",yesOdds:2.15,noOdds:1.80,yesPct:48,end:"本月"},
+        {id:13,q:"人工智能板块领涨",cat:"板块",hot:true,yesOdds:1.65,noOdds:2.30,yesPct:62,end:"本周"},
+        {id:14,q:"新能源车板块反弹",cat:"板块",yesOdds:1.95,noOdds:1.95,yesPct:50,end:"本周"},
+        {id:15,q:"半导体板块回调",cat:"板块",yesOdds:2.20,noOdds:1.75,yesPct:45,end:"本周"},
+        {id:16,q:"白酒板块止跌回升",cat:"板块",yesOdds:2.40,noOdds:1.65,yesPct:40,end:"本周"},
+        {id:17,q:"券商板块启动",cat:"板块",hot:true,yesOdds:1.80,noOdds:2.10,yesPct:55,end:"本周"},
+        {id:18,q:"银行板块护盘",cat:"板块",yesOdds:1.65,noOdds:2.35,yesPct:60,end:"本周"},
+        {id:19,q:"CRO 板块大涨",cat:"板块",yesOdds:2.10,noOdds:1.85,yesPct:50,end:"本周"},
+        {id:20,q:"证监会发布利好政策",cat:"政策",hot:true,yesOdds:1.50,noOdds:2.60,yesPct:68,end:"本月"},
+        {id:21,q:"IPO 重启提速",cat:"政策",yesOdds:1.80,noOdds:2.10,yesPct:55,end:"本月"},
+        {id:22,q:"降息降准落地",cat:"政策",yesOdds:2.80,noOdds:1.45,yesPct:35,end:"季度"},
+        {id:23,q:"T+0 制度实施",cat:"政策",yesOdds:4.00,noOdds:1.25,yesPct:22,end:"年内"},
+        {id:24,q:"科创板做市商落地",cat:"政策",yesOdds:1.90,noOdds:1.95,yesPct:52,end:"季度"},
+        {id:25,q:"全面注册制推行",cat:"政策",yesOdds:2.60,noOdds:1.50,yesPct:38,end:"年内"},
+        {id:26,q:"恒生指数突破 20000",cat:"港股",hot:true,yesOdds:1.70,noOdds:2.20,yesPct:60,end:"本月"},
+        {id:27,q:"腾讯控股突破 400 港币",cat:"港股",yesOdds:2.00,noOdds:1.90,yesPct:52,end:"本月"},
+        {id:28,q:"阿里巴巴回港上市",cat:"港股",yesOdds:2.50,noOdds:1.60,yesPct:42,end:"半年"},
+        {id:29,q:"港交所允许散户买A股",cat:"港股",yesOdds:3.00,noOdds:1.40,yesPct:32,end:"年内"},
+        {id:30,q:"京东物流纳入港股通",cat:"港股",yesOdds:2.30,noOdds:1.70,yesPct:45,end:"季度"},
+        {id:31,q:"港币汇率稳定 7.85",cat:"港股",yesOdds:1.75,noOdds:2.20,yesPct:58,end:"本月"},
+        {id:32,q:"快手纳入恒生指数",cat:"港股",yesOdds:2.40,noOdds:1.65,yesPct:43,end:"半年"},
+        {id:33,q:"隆基绿能重回 30 元",cat:"个股",yesOdds:2.35,noOdds:1.68,yesPct:44,end:"本月"},
+        {id:34,q:"药明康德涨停",cat:"个股",yesOdds:3.20,noOdds:1.38,yesPct:30,end:"本周"},
+        {id:35,q:"海康威视创新高",cat:"个股",yesOdds:2.45,noOdds:1.62,yesPct:42,end:"本月"},
+        {id:36,q:"地产板块政策利好",cat:"板块",yesOdds:2.25,noOdds:1.72,yesPct:46,end:"本月"},
+        {id:37,q:"外汇降准公布",cat:"政策",yesOdds:2.00,noOdds:1.88,yesPct:48,end:"季度"},
+        {id:38,q:"社保基金加仓A股",cat:"政策",yesOdds:1.55,noOdds:2.50,yesPct:65,end:"季度"},
+        {id:39,q:"香港与内地通关恢复",cat:"港股",yesOdds:1.45,noOdds:2.70,yesPct:70,end:"年内"},
+        {id:40,q:"两融余额破 2 万亿",cat:"大盘",yesOdds:1.70,noOdds:2.25,yesPct:58,end:"本月"}
+    ];
+    
+    let web3Instance = null;
+    let contractInstance = null;
+    let userAccount = null;
+    let currentCategory = 'all';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        renderMarkets();
+    });
+    
+    function renderMarkets() {
+        const grid = document.getElementById('marketsGrid');
+        const filtered = currentCategory === 'all' ? marketsData : marketsData.filter(m => m.cat === currentCategory);
+        document.getElementById('marketCount').textContent = filtered.length + ' 个市场';
+        grid.innerHTML = filtered.map(m => `
+            <div class="market-card">
+                <div class="card-header">
+                    <div class="card-title">${m.q}</div>
+                    ${m.hot ? '<span class="hot-tag">🔥 热门</span>' : ''}
+                </div>
+                <div class="card-meta"><span>📊 ${m.cat}</span><span>⏱️ ${m.end}</span></div>
+                <div class="progress-bar">
+                    <div class="progress-yes" style="width: ${m.yesPct}%"></div>
+                    <div class="progress-no" style="width: ${100-m.yesPct}%"></div>
+                </div>
+                <div class="progress-labels">
+                    <span style="color:#22bb33">涨 ${m.yesPct}%</span>
+                    <span style="color:#ff4444">跌 ${100-m.yesPct}%</span>
+                </div>
+                <div class="odds-section">
+                    <button class="odds-btn odds-up" onclick="placeBet(${m.id}, true)">
+                        <div class="odds-label">📈 涨</div>
+                        <div class="odds-value">${m.yesOdds}x</div>
+                    </button>
+                    <button class="odds-btn odds-down" onclick="placeBet(${m.id}, false)">
+                        <div class="odds-label">📉 跌</div>
+                        <div class="odds-value">${m.noOdds}x</div>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function filterCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        renderMarkets();
+    }
+    
+    async function connectWallet() {
+        if (typeof window.ethereum === 'undefined') {
+            alert('请先安装 MetaMask!');
+            return;
+        }
+        try {
+            const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
+            userAccount = accounts[0];
+            web3Instance = new Web3(window.ethereum);
+            contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+            document.getElementById('walletAddr').textContent = userAccount.slice(0,6)+'...'+userAccount.slice(-4);
+            const bal = await web3Instance.eth.getBalance(userAccount);
+            document.getElementById('walletBal').textContent = (bal/1e18).toFixed(4)+' BNB';
+            document.getElementById('walletInfo').classList.add('show');
+            document.getElementById('connectBtn').style.display = 'none';
+        } catch(e) { alert('连接失败: '+e.message); }
+    }
+    
+    async function placeBet(marketId, isYes) {
+        if (!userAccount) { alert('请先连接钱包!'); await connectWallet(); return; }
+        const market = marketsData.find(m => m.id === marketId);
+        const amount = prompt('输入投注金额 (BNB):', '0.1');
+        if (!amount || parseFloat(amount) <= 0) return;
+        try {
+            const tx = await contractInstance.methods.placeBet(marketId, isYes).send({
+                from: userAccount,
+                value: web3Instance.utils.toWei(amount, 'ether'),
+                gas: '300000'
+            });
+            alert('✅ 投注成功!\n交易: '+tx.transactionHash.slice(0,20)+'...\n金额: '+amount+' BNB');
+        } catch(e) { alert('投注失败: '+(e.message || e)); }
+    }
+    </script>
+</body>
+</html>
