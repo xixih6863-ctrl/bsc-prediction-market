@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📈 同花顺预测市场 - A股期货期权</title>
+    <title>📊 同花顺预测市场 - A股期货期权</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; min-height: 100vh; }
@@ -19,14 +20,7 @@
             flex-wrap: wrap;
             gap: 15px;
         }
-        .logo { 
-            display: flex; 
-            align-items: center; 
-            gap: 12px; 
-            font-size: 26px; 
-            font-weight: bold; 
-            color: #ffd700;
-        }
+        .logo { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: bold; color: #ffd700; }
         .logo-icon { font-size: 32px; }
         .sub-logo { font-size: 14px; color: rgba(255,255,255,0.8); font-weight: normal; }
         
@@ -43,6 +37,15 @@
         .wallet-info.show { display: flex; }
         .wallet-addr { font-size: 13px; color: #ffd700; font-family: monospace; }
         .wallet-bal { font-size: 14px; color: #ffd700; font-weight: bold; }
+        .disconnect-btn {
+            background: rgba(255,0,0,0.2);
+            color: #ff6666;
+            padding: 8px 15px;
+            border: 1px solid #ff6666;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
         .connect-btn {
             background: linear-gradient(135deg, #ffd700, #ffb700);
             color: #8b0000;
@@ -70,10 +73,17 @@
             padding: 18px;
             text-align: center;
         }
+        .status-title { font-size: 12px; color: #888; margin-bottom: 8px; }
+        .status-value { font-size: 16px; font-weight: bold; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
         .status-dot.green { background: #22bb33; }
         .status-dot.red { background: #ff4444; }
         .status-dot.yellow { background: #ffd700; }
+        .status-dot.gray { background: #666; }
+        
+        .status-success { color: #22bb33; }
+        .status-error { color: #ff4444; }
+        .status-warning { color: #ffd700; }
         
         /* Index Bar */
         .index-bar {
@@ -121,6 +131,7 @@
             color: #888;
             cursor: pointer;
         }
+        .cat-btn:hover { background: #2a2a3a; }
         .cat-btn.active {
             background: linear-gradient(135deg, #c41e3a, #8b0000);
             border-color: #ffd700;
@@ -165,7 +176,9 @@
             text-align: center;
             cursor: pointer;
             border: 2px solid transparent;
+            transition: all 0.2s;
         }
+        .odds-btn:hover { transform: translateY(-2px); }
         .odds-up {
             background: rgba(34,187,51,0.15);
             border-color: rgba(34,187,51,0.4);
@@ -190,6 +203,52 @@
         }
         .footer a { color: #ffd700; text-decoration: none; }
         
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: #1a1a24;
+            border: 1px solid #333;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-title { font-size: 20px; color: #ffd700; margin-bottom: 20px; }
+        .modal-input {
+            width: 100%;
+            padding: 14px;
+            background: #0d0d14;
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .modal-btns { display: flex; gap: 12px; }
+        .modal-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .modal-btn.confirm { background: linear-gradient(135deg, #22bb33, #119922); color: #fff; }
+        .modal-btn.cancel { background: #333; color: #888; }
+        
         @media (max-width: 768px) {
             .markets-grid { grid-template-columns: 1fr; }
             .index-bar { grid-template-columns: repeat(2, 1fr); }
@@ -210,6 +269,7 @@
             <div class="wallet-info" id="walletInfo">
                 <span class="wallet-addr" id="walletAddr">---</span>
                 <span class="wallet-bal" id="walletBal">0 BNB</span>
+                <button class="disconnect-btn" onclick="disconnectWallet()">断开</button>
             </div>
             <button class="connect-btn" id="connectBtn" onclick="connectWallet()">🔗 连接钱包</button>
         </div>
@@ -219,64 +279,38 @@
         <!-- Status -->
         <div class="status-bar">
             <div class="status-card">
-                <div><span class="status-dot green"></span>系统状态</div>
-                <div style="margin-top:8px;color:#22bb33;font-weight:bold;">正常运行</div>
+                <div class="status-title">MetaMask</div>
+                <div class="status-value" id="metamaskStatus"><span class="status-dot gray"></span>检测中...</div>
             </div>
             <div class="status-card">
-                <div><span class="status-dot green"></span>活跃市场</div>
-                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">40</div>
+                <div class="status-title">网络</div>
+                <div class="status-value" id="networkStatus"><span class="status-dot gray"></span>检测中...</div>
             </div>
             <div class="status-card">
-                <div><span class="status-dot green"></span>总成交量</div>
-                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">2,450 BNB</div>
+                <div class="status-title">合约</div>
+                <div class="status-value" id="contractStatus"><span class="status-dot gray"></span>检测中...</div>
             </div>
             <div class="status-card">
-                <div><span class="status-dot yellow"></span>在线用户</div>
-                <div style="margin-top:8px;color:#ffd700;font-size:20px;font-weight:bold;">128</div>
+                <div class="status-title">连接状态</div>
+                <div class="status-value" id="connectionStatus"><span class="status-dot gray"></span>未连接</div>
             </div>
         </div>
         
         <!-- A-Share Indices -->
         <div class="section">
-            <div class="section-title">
-                📈 A股指数
-            </div>
+            <div class="section-title">📈 A股指数</div>
             <div class="index-bar">
-                <div class="index-card">
-                    <div class="index-name">上证指数</div>
-                    <div class="index-val">3,452.31</div>
-                    <div class="index-up">+1.23%</div>
-                </div>
-                <div class="index-card">
-                    <div class="index-name">深证成指</div>
-                    <div class="index-val">11,892.45</div>
-                    <div class="index-down">-0.45%</div>
-                </div>
-                <div class="index-card">
-                    <div class="index-name">创业板指</div>
-                    <div class="index-val">2,456.78</div>
-                    <div class="index-up">+0.89%</div>
-                </div>
-                <div class="index-card">
-                    <div class="index-name">沪深300</div>
-                    <div class="index-val">4,123.56</div>
-                    <div class="index-up">+1.56%</div>
-                </div>
-                <div class="index-card">
-                    <div class="index-name">恒生指数</div>
-                    <div class="index-val">19,876.54</div>
-                    <div class="index-down">-0.32%</div>
-                </div>
+                <div class="index-card"><div class="index-name">上证指数</div><div class="index-val">3,452.31</div><div class="index-up">+1.23%</div></div>
+                <div class="index-card"><div class="index-name">深证成指</div><div class="index-val">11,892.45</div><div class="index-down">-0.45%</div></div>
+                <div class="index-card"><div class="index-name">创业板指</div><div class="index-val">2,456.78</div><div class="index-up">+0.89%</div></div>
+                <div class="index-card"><div class="index-name">沪深300</div><div class="index-val">4,123.56</div><div class="index-up">+1.56%</div></div>
+                <div class="index-card"><div class="index-name">恒生指数</div><div class="index-val">19,876.54</div><div class="index-down">-0.32%</div></div>
             </div>
         </div>
         
-        <!-- Hot Predictions -->
+        <!-- Markets -->
         <div class="section">
-            <div class="section-title">
-                🔥 热门预测
-                <span class="market-count" id="marketCount">40 个市场</span>
-            </div>
-            
+            <div class="section-title">🔥 热门预测<span class="market-count" id="marketCount">40 个市场</span></div>
             <div class="category-filter">
                 <button class="cat-btn active" onclick="filterCategory('all')">📊 全部</button>
                 <button class="cat-btn" onclick="filterCategory('大盘')">📈 大盘</button>
@@ -285,20 +319,48 @@
                 <button class="cat-btn" onclick="filterCategory('政策')">📜 政策</button>
                 <button class="cat-btn" onclick="filterCategory('港股')">🇭🇰 港股</button>
             </div>
-            
             <div class="markets-grid" id="marketsGrid"></div>
+        </div>
+    </div>
+    
+    <!-- Bet Modal -->
+    <div class="modal-overlay" id="betModal">
+        <div class="modal">
+            <div class="modal-title" id="betModalTitle">确认投注</div>
+            <div style="margin-bottom:15px;color:#888;">
+                <div id="betMarketName" style="font-size:16px;margin-bottom:10px;"></div>
+                <div id="betDirection" style="font-weight:bold;"></div>
+            </div>
+            <input type="number" class="modal-input" id="betAmount" placeholder="输入投注金额 (BNB)" min="0.001" step="0.001" value="0.1">
+            <div style="margin-bottom:15px;font-size:14px;color:#888;">
+                预计获得: <span id="potentialWin" style="color:#ffd700;">0</span> BNB
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeBetModal()">取消</button>
+                <button class="modal-btn confirm" onclick="confirmBet()">确认投注</button>
+            </div>
         </div>
     </div>
     
     <div class="footer">
         <p>📊 同花顺预测市场 | 🎯 赔率仅供参考</p>
         <p>合约: <a href="https://bscscan.com/address/0x0a622fBE2A3daD19AEEFAb20880E5E7a87d37146" target="_blank">0x0a62...146</a> | BSC Mainnet</p>
-        <p>⚠️ 风险提示: 预测市场有风险，投资需谨慎</p>
     </div>
     
     <script>
-    const CONTRACT_ADDRESS = "0x0a622fBE2A3daD19AEEFAb20880E5E7a87d37146";
-    const BSC_CHAIN_ID = "0x38";
+    // Config
+    const CONFIG = {
+        CONTRACT_ADDRESS: "0x0a622fBE2A3daD19AEEFAb20880E5E7a87d37146",
+        BSC_CHAIN_ID: "0x38",
+        RPC_URL: "https://bsc-dataseed1.binance.org/"
+    };
+    
+    let web3 = null;
+    let contract = null;
+    let userAccount = null;
+    let currentBet = null;
+    let currentCategory = 'all';
+    
     const CONTRACT_ABI = [{"inputs":[{"name":"_marketId","type":"uint256"},{"name":"_isYes","type":"bool"}],"name":"placeBet","outputs":[],"stateMutability":"payable","type":"function"}];
     
     const marketsData = [
@@ -344,14 +406,128 @@
         {id:40,q:"两融余额破 2 万亿",cat:"大盘",yesOdds:1.70,noOdds:2.25,yesPct:58,end:"本月"}
     ];
     
-    let web3Instance = null;
-    let contractInstance = null;
-    let userAccount = null;
-    let currentCategory = 'all';
-    
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        await initSystem();
         renderMarkets();
     });
+    
+    async function initSystem() {
+        // Check Web3
+        if (typeof Web3 === 'undefined') {
+            updateStatus('metamaskStatus', 'error', 'Web3 未加载');
+            return;
+        }
+        
+        // Check MetaMask
+        if (typeof window.ethereum === 'undefined') {
+            if (typeof window.BinanceChain !== 'undefined') {
+                window.ethereum = window.BinanceChain;
+            }
+        }
+        
+        if (typeof window.ethereum !== 'undefined') {
+            updateStatus('metamaskStatus', 'success', '已安装');
+        } else {
+            updateStatus('metamaskStatus', 'warning', 'MetaMask 未安装');
+        }
+        
+        // Init Web3
+        web3 = new Web3(window.ethereum || new Web3.providers.HttpProvider(CONFIG.RPC_URL));
+        
+        // Check network
+        try {
+            if (window.ethereum) {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId === CONFIG.BSC_CHAIN_ID) {
+                    updateStatus('networkStatus', 'success', 'BSC 主网 ✓');
+                } else {
+                    updateStatus('networkStatus', 'warning', '非 BSC');
+                }
+            } else {
+                updateStatus('networkStatus', 'warning', '使用 RPC');
+            }
+        } catch (e) {
+            updateStatus('networkStatus', 'warning', '网络未知');
+        }
+        
+        // Init contract
+        try {
+            contract = new web3.eth.Contract(CONTRACT_ABI, CONFIG.CONTRACT_ADDRESS);
+            const code = await web3.eth.getCode(CONFIG.CONTRACT_ADDRESS);
+            if (code && code !== '0x') {
+                updateStatus('contractStatus', 'success', '已连接 ✓');
+            } else {
+                updateStatus('contractStatus', 'error', '合约未找到');
+            }
+        } catch (e) {
+            updateStatus('contractStatus', 'error', '连接失败');
+        }
+        
+        // Check connection
+        try {
+            if (window.ethereum) {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    userAccount = accounts[0];
+                    await updateWalletUI();
+                }
+            }
+        } catch (e) {}
+    }
+    
+    function updateStatus(id, status, text) {
+        const el = document.getElementById(id);
+        el.innerHTML = `<span class="status-dot status-${status}"></span>${text}`;
+    }
+    
+    async function connectWallet() {
+        try {
+            if (!window.ethereum) {
+                alert('请安装 MetaMask!\n\n下载: https://metamask.io/download/');
+                return;
+            }
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (accounts.length > 0) {
+                userAccount = accounts[0];
+                await updateWalletUI();
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', () => window.location.reload());
+                alert('✅ 钱包连接成功!\n\n' + userAccount.slice(0,6) + '...' + userAccount.slice(-4));
+            }
+        } catch (e) {
+            alert('连接失败: ' + e.message);
+        }
+    }
+    
+    function disconnectWallet() {
+        userAccount = null;
+        document.getElementById('walletInfo').classList.remove('show');
+        document.getElementById('connectBtn').style.display = 'block';
+        updateStatus('connectionStatus', 'gray', '未连接');
+    }
+    
+    function handleAccountsChanged(accounts) {
+        if (accounts.length === 0) {
+            disconnectWallet();
+        } else {
+            userAccount = accounts[0];
+            updateWalletUI();
+        }
+    }
+    
+    async function updateWalletUI() {
+        if (!userAccount) return;
+        document.getElementById('walletAddr').textContent = userAccount.slice(0,6) + '...' + userAccount.slice(-4);
+        try {
+            const balance = await web3.eth.getBalance(userAccount);
+            document.getElementById('walletBal').textContent = parseFloat(web3.utils.fromWei(balance, 'ether')).toFixed(4) + ' BNB';
+        } catch (e) {
+            document.getElementById('walletBal').textContent = '0 BNB';
+        }
+        document.getElementById('walletInfo').classList.add('show');
+        document.getElementById('connectBtn').style.display = 'none';
+        updateStatus('connectionStatus', 'success', '已连接 ✓');
+    }
     
     function renderMarkets() {
         const grid = document.getElementById('marketsGrid');
@@ -373,11 +549,11 @@
                     <span style="color:#ff4444">跌 ${100-m.yesPct}%</span>
                 </div>
                 <div class="odds-section">
-                    <button class="odds-btn odds-up" onclick="placeBet(${m.id}, true)">
+                    <button class="odds-btn odds-up" onclick="openBetModal(${m.id}, true)">
                         <div class="odds-label">📈 涨</div>
                         <div class="odds-value">${m.yesOdds}x</div>
                     </button>
-                    <button class="odds-btn odds-down" onclick="placeBet(${m.id}, false)">
+                    <button class="odds-btn odds-down" onclick="openBetModal(${m.id}, false)">
                         <div class="odds-label">📉 跌</div>
                         <div class="odds-value">${m.noOdds}x</div>
                     </button>
@@ -393,37 +569,52 @@
         renderMarkets();
     }
     
-    async function connectWallet() {
-        if (typeof window.ethereum === 'undefined') {
-            alert('请先安装 MetaMask!');
+    function openBetModal(marketId, isYes) {
+        if (!userAccount) {
+            alert('请先连接钱包!');
+            connectWallet();
             return;
         }
-        try {
-            const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
-            userAccount = accounts[0];
-            web3Instance = new Web3(window.ethereum);
-            contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-            document.getElementById('walletAddr').textContent = userAccount.slice(0,6)+'...'+userAccount.slice(-4);
-            const bal = await web3Instance.eth.getBalance(userAccount);
-            document.getElementById('walletBal').textContent = (bal/1e18).toFixed(4)+' BNB';
-            document.getElementById('walletInfo').classList.add('show');
-            document.getElementById('connectBtn').style.display = 'none';
-        } catch(e) { alert('连接失败: '+e.message); }
+        const market = marketsData.find(m => m.id === marketId);
+        currentBet = { marketId, isYes, odds: isYes ? market.yesOdds : market.noOdds };
+        document.getElementById('betModalTitle').textContent = isYes ? '📈 买涨' : '📉 买跌';
+        document.getElementById('betMarketName').textContent = market.q;
+        document.getElementById('betDirection').textContent = isYes ? '📈 涨' : '📉 跌';
+        document.getElementById('betDirection').style.color = isYes ? '#22bb33' : '#ff4444';
+        document.getElementById('betModal').classList.add('show');
+        updatePotentialWin();
     }
     
-    async function placeBet(marketId, isYes) {
-        if (!userAccount) { alert('请先连接钱包!'); await connectWallet(); return; }
-        const market = marketsData.find(m => m.id === marketId);
-        const amount = prompt('输入投注金额 (BNB):', '0.1');
-        if (!amount || parseFloat(amount) <= 0) return;
+    function closeBetModal() {
+        document.getElementById('betModal').classList.remove('show');
+    }
+    
+    function updatePotentialWin() {
+        const amount = parseFloat(document.getElementById('betAmount').value) || 0;
+        const win = (amount * currentBet.odds).toFixed(4);
+        document.getElementById('potentialWin').textContent = win;
+    }
+    
+    document.getElementById('betAmount').addEventListener('input', updatePotentialWin);
+    
+    async function confirmBet() {
+        const amount = parseFloat(document.getElementById('betAmount').value);
+        if (!amount || amount <= 0) {
+            alert('请输入有效金额!');
+            return;
+        }
+        
         try {
-            const tx = await contractInstance.methods.placeBet(marketId, isYes).send({
+            const tx = await contract.methods.placeBet(currentBet.marketId, currentBet.isYes).send({
                 from: userAccount,
-                value: web3Instance.utils.toWei(amount, 'ether'),
+                value: web3.utils.toWei(amount.toString(), 'ether'),
                 gas: '300000'
             });
-            alert('✅ 投注成功!\n交易: '+tx.transactionHash.slice(0,20)+'...\n金额: '+amount+' BNB');
-        } catch(e) { alert('投注失败: '+(e.message || e)); }
+            alert('✅ 投注成功!\n\n交易: ' + tx.transactionHash.slice(0,20) + '...\n金额: ' + amount + ' BNB');
+            closeBetModal();
+        } catch (e) {
+            alert('投注失败: ' + (e.message || e));
+        }
     }
     </script>
 </body>
